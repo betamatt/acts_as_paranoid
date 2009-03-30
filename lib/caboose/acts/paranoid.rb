@@ -55,7 +55,9 @@ module Caboose #:nodoc:
         def acts_as_paranoid(options = {})
           unless paranoid? # don't let AR call this twice
             cattr_accessor :deleted_attribute
+            cattr_accessor :support_future_deletes
             self.deleted_attribute = options[:with] || :deleted_at
+            self.support_future_deletes = options[:future_deletes] || true
             alias_method :destroy_without_callbacks!, :destroy_without_callbacks
             class << self
               alias_method :find_every_with_deleted,    :find_every
@@ -137,11 +139,19 @@ module Caboose #:nodoc:
             end
 
             def with_deleted_scope(&block)
-              with_scope({:find => { :conditions => ["#{table_name}.#{deleted_attribute} IS NULL OR #{table_name}.#{deleted_attribute} > ?", current_time] } }, :merge, &block)
+              if support_future_deletes
+                with_scope({:find => { :conditions => ["#{table_name}.#{deleted_attribute} IS NULL OR #{table_name}.#{deleted_attribute} > ?", current_time] } }, :merge, &block)
+              else
+                with_scope({:find => { :conditions => ["#{table_name}.#{deleted_attribute} IS NULL"] } }, :merge, &block)
+              end
             end
 
             def with_only_deleted_scope(&block)
-              with_scope({:find => { :conditions => ["#{table_name}.#{deleted_attribute} IS NOT NULL AND #{table_name}.#{deleted_attribute} <= ?", current_time] } }, :merge, &block)
+              if support_future_deletes
+                with_scope({:find => { :conditions => ["#{table_name}.#{deleted_attribute} IS NOT NULL AND #{table_name}.#{deleted_attribute} <= ?", current_time] } }, :merge, &block)
+              else
+                with_scope({:find => { :conditions => ["#{table_name}.#{deleted_attribute} IS NOT NULL"] } }, :merge, &block)
+              end
             end
 
           private
@@ -156,8 +166,13 @@ module Caboose #:nodoc:
         end
 
         def destroy_without_callbacks
-          unless new_record?
-            self.class.update_all self.class.send(:sanitize_sql, ["#{self.class.deleted_attribute} = ?", (self.deleted_at = self.class.send(:current_time))]), ["#{self.class.primary_key} = ?", id]
+          deleted_attribute_value=self.read_attribute(self.class.deleted_attribute) #think: self.deleted_at
+          current_time_value=self.class.send(:current_time)
+
+          if !new_record? && (deleted_attribute_value.nil? || deleted_attribute_value > current_time_value)
+            self.write_attribute(self.class.deleted_attribute,current_time_value)
+            self.class.update_all self.class.send(:sanitize_sql,["#{self.class.deleted_attribute} = ?", current_time_value]),
+                ["#{self.class.table_name}.#{self.class.primary_key} = ?", id]
           end
           freeze
         end
@@ -174,11 +189,11 @@ module Caboose #:nodoc:
         end
 
         def deleted?
-          !!read_attribute(:deleted_at)
+          !!read_attribute(self.class.deleted_attribute)
         end
 
         def recover!
-          self.deleted_at = nil
+          write_attribute(self.class.deleted_attribute,nil)
           save!
         end
         

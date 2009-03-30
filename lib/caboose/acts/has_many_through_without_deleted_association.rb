@@ -17,8 +17,13 @@ module Caboose # :nodoc:
           quoted_current_time = @reflection.through_reflection.klass.quote_value(
             current_time,
             @reflection.through_reflection.klass.columns_hash[deleted_attribute.to_s])
-          conditions << "#{table_name}.#{deleted_attribute} IS NULL OR #{table_name}.#{deleted_attribute} > #{quoted_current_time}"
-
+          
+          #use @reflection.through_reflection.klass.with_only_deleted_scope ?
+          if @reflection.through_reflection.klass.support_future_deletes
+            conditions << "#{table_name}.#{deleted_attribute} IS NULL OR #{table_name}.#{deleted_attribute} > #{quoted_current_time}"
+          else
+            conditions << "#{table_name}.#{deleted_attribute} IS NULL"
+          end
           conditions << sql_conditions if sql_conditions
           "(" + conditions.join(') AND (') + ")"
         end

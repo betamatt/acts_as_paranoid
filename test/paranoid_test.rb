@@ -278,6 +278,14 @@ class ParanoidTest < Test::Unit::TestCase
     assert_equal false, Widget.find(1).deleted?
     assert_equal false, Category.find(1).deleted?
   end
+
+  def test_should_mimick_active_record_and_be_able_to_destroy_record_multiple_times
+    assert_nothing_thrown do
+      w=Widget.find(1)
+      w.destroy
+      w.destroy
+    end
+  end
 end
 
 class Array
