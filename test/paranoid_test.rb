@@ -42,6 +42,20 @@ end
 class ParanoidTest < Test::Unit::TestCase
   fixtures :widgets, :categories, :categories_widgets, :tags, :taggings
   
+  def test_should_recognize_future_deletes_option
+    c = Tag.new
+    class << c
+      acts_as_paranoid :future_deletes => true
+    end
+    assert c.support_future_deletes
+    
+    c = Tag.new
+    class << c
+      acts_as_paranoid :future_deletes => false
+    end
+    assert !c.support_future_deletes
+  end
+  
   def test_should_recognize_with_deleted_option
     assert_equal [1, 2], Widget.find(:all, :with_deleted => true).collect { |w| w.id }
     assert_equal [1], Widget.find(:all, :with_deleted => false).collect { |w| w.id }

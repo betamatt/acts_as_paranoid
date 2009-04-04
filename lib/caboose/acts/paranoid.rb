@@ -57,7 +57,7 @@ module Caboose #:nodoc:
             cattr_accessor :deleted_attribute
             cattr_accessor :support_future_deletes
             self.deleted_attribute = options[:with] || :deleted_at
-            self.support_future_deletes = options[:future_deletes] || true
+            self.support_future_deletes = options[:future_deletes].nil? ? true : options[:future_deletes]
             alias_method :destroy_without_callbacks!, :destroy_without_callbacks
             class << self
               alias_method :find_every_with_deleted,    :find_every
